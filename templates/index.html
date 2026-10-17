@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Machine health dashboard</h1>
+<p>Historical statistics come from the 10,000 observed machine records. Model results come from a held-out test set. Predictions you make in this session are listed separately at the bottom.</p></div>
+
+{% if not stats or not evaluation %}
+<div class="alert alert-danger">Training outputs were not found in <code>outputs/</code>. Run <code>python train_model.py</code> first.</div>
+{% else %}
+<div class="section-label"><span class="tag hist">OBSERVED</span> Historical dataset</div>
+<div class="grid g4 mb">
+  <div class="card kpi"><div class="label">Records analysed</div><div class="value">{{ '{:,}'.format(stats.total_records) }}</div><div class="note">machine operating records</div></div>
+  <div class="card kpi"><div class="label">Historical failures</div><div class="value">{{ stats.failures }}</div><div class="note">Machine failure = 1</div></div>
+  <div class="card kpi"><div class="label">Historical non-failures</div><div class="value">{{ '{:,}'.format(stats.non_failures) }}</div><div class="note">Machine failure = 0</div></div>
+  <div class="card kpi"><div class="label">Historical failure rate</div><div class="value">{{ stats.failure_rate|pct(2) }}</div><div class="note">strong class imbalance</div></div>
+</div>
+
+<div class="grid g3 mb">
+  <div class="card"><h2>Failure rate by tool wear</h2><p class="sub">Share of records that failed, per tool-wear band (minutes).</p>
+    {% set wear = stats.by_tool_wear %}
+    <div class="chart" data-chart='{{ {"labels": wear.keys()|list, "values": wear.values()|map(attribute="rate")|list, "format": "pct", "title": "Failure rate by tool wear"}|tojson }}'></div>
+    <p class="small muted">Wear above 200 min stands out clearly from the lower bands.</p></div>
+  <div class="card"><h2>Recorded failure modes</h2><p class="sub">Counts per labelled failure type (a record can have several).</p>
+    <div class="chart" data-chart='{{ {"labels": stats.failure_modes.keys()|list, "values": stats.failure_modes.values()|list, "format": "int", "title": "Failure modes"}|tojson }}'></div>
+    <p class="small muted">TWF tool wear, HDF heat dissipation, PWF power, OSF overstrain, RNF random. These describe causes, so they are <b>not</b> model inputs.</p></div>
+  <div class="card"><h2>Failure rate by product type</h2><p class="sub">L, M and H quality variants.</p>
+    {% set bt = stats.by_type %}
+    <div class="chart" data-chart='{{ {"labels": bt.keys()|list, "values": bt.values()|map(attribute="rate")|list, "format": "pct", "title": "Failure rate by type"}|tojson }}'></div></div>
+</div>
+<div class="card mb"><h2>Operating statistics</h2><p class="sub">Mean, spread and range of each sensor reading, and how failed machines differ from healthy ones.</p>
+  <div class="table-wrap"><table class="table"><thead><tr><th>Feature</th><th class="num">Mean</th><th class="num">Std</th><th class="num">Min</th><th class="num">Max</th><th class="num">Mean (no failure)</th><th class="num">Mean (failure)</th></tr></thead><tbody>
+  {% for name, s in stats.operating_stats.items() %}<tr><td>{{ name }}</td><td class="num">{{ '%.1f'|format(s['mean']) }}</td><td class="num">{{ '%.1f'|format(s['std']) }}</td><td class="num">{{ '%.1f'|format(s['min']) }}</td><td class="num">{{ '%.1f'|format(s['max']) }}</td><td class="num">{{ '%.1f'|format(stats.failed_vs_ok_means[name].ok) }}</td><td class="num">{{ '%.1f'|format(stats.failed_vs_ok_means[name].failed) }}</td></tr>{% endfor %}
+  </tbody></table></div></div>
+
+<div class="section-label"><span class="tag model">MODEL</span> Evaluation on held-out test set ({{ evaluation.test_records }} records, {{ evaluation.test_failures }} failures)</div>
+{% if selected %}
+{% set t = selected.test_tuned_threshold %}
+<div class="grid g4 mb">
+  <div class="card kpi model"><div class="label">Selected model</div><div class="value" style="font-size:1.25rem">{{ evaluation.selected_model }}</div><div class="note">chosen by cross-validation, not the test set</div></div>
+  <div class="card kpi model"><div class="label">Recall</div><div class="value">{{ t.recall|pct }}</div><div class="note">failures caught ({{ t.confusion_matrix.tp }} of {{ t.confusion_matrix.tp + t.confusion_matrix.fn }})</div></div>
+  <div class="card kpi model"><div class="label">Precision</div><div class="value">{{ t.precision|pct }}</div><div class="note">alerts that were real failures</div></div>
+  <div class="card kpi model"><div class="label">Accuracy</div><div class="value">{{ t.accuracy|pct }}</div><div class="note">always predicting "no failure" gives {{ evaluation.majority_class_accuracy|pct }}</div></div>
+  <div class="card kpi model"><div class="label">F1-score</div><div class="value">{{ t.f1|num }}</div><div class="note">F2 (recall-weighted): {{ t.f2|num }}</div></div>
+  <div class="card kpi model"><div class="label">ROC-AUC</div><div class="value">{{ selected.roc_auc|num }}</div><div class="note">ranking quality</div></div>
+  <div class="card kpi model"><div class="label">PR-AUC</div><div class="value">{{ selected.pr_auc|num }}</div><div class="note">better for rare failures</div></div>
+  <div class="card kpi model"><div class="label">Decision threshold</div><div class="value">{{ t.threshold|num }}</div><div class="note">probability above this = failure alert</div></div>
+</div>
+<div class="grid g2 mb">
+  <div class="card"><h2>Model comparison: recall</h2><p class="sub">Share of real failures each model detects on the test set.</p>
+    <div class="chart" data-chart='{{ {"labels": evaluation.models|map(attribute="model")|list, "values": evaluation.models|map(attribute="test_tuned_threshold")|map(attribute="recall")|list, "format": "pct", "title": "Recall by model"}|tojson }}'></div></div>
+  <div class="card"><h2>Model comparison: PR-AUC</h2><p class="sub">Precision-recall area on the test set (higher is better).</p>
+    <div class="chart" data-chart='{{ {"labels": evaluation.models|map(attribute="model")|list, "values": evaluation.models|map(attribute="pr_auc")|list, "format": "dec", "title": "PR-AUC by model"}|tojson }}'></div>
+    <div class="actions"><a class="btn btn-outline" href="{{ url_for('performance') }}">Full model report</a></div></div>
+</div>
+{% endif %}
+{% if importance_chart %}
+<div class="card mb"><h2>What drives the model? <span class="tag model">PERMUTATION IMPORTANCE</span></h2><p class="sub">Drop in PR-AUC on the test set when one input is shuffled. Bigger means the model relies on it more.</p>
+  <div class="chart" data-chart='{{ importance_chart|tojson }}'></div></div>
+{% endif %}
+{% endif %}
+
+<div class="section-label"><span class="tag model">THIS SESSION</span> Predictions made in this app</div>
+<div class="card">
+  {% if recent %}
+  <div class="table-wrap"><table class="table"><thead><tr><th>Time</th><th>Type</th><th class="num">Failure probability</th><th>Predicted</th><th>Risk</th></tr></thead><tbody>
+  {% for r in recent %}<tr><td>{{ r.time }}</td><td>{{ r.type }}</td><td class="num">{{ r.probability|pct(1) }}</td><td>{{ 'Failure predicted' if r.predicted else 'No failure predicted' }}</td><td><span class="badge risk-{{ r.risk }}">{{ r.risk }}</span></td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}
+  <div class="empty"><b>No predictions yet.</b><br>Use <a href="{{ url_for('predict') }}">Predict a machine</a> or <a href="{{ url_for('batch') }}">Batch CSV</a>. These are model estimates, never counted as observed failures.</div>
+  {% endif %}
+</div>
+{% endblock %}

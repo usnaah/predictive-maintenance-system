@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+# Virtual environments
+venv/
+.venv/
+env/
+# Jupyter
+.ipynb_checkpoints/
+# Secrets and local config
+.env
+*.env
+# Temporary / generated run logs (the model, metrics and datasets in models/ and outputs/ ARE kept on purpose)
+outputs/*.log
+uploads/
+tmp/
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

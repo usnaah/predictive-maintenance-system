@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Model performance{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Model performance</h1>
+<p>All numbers below were computed by <code>train_model.py</code> and read from <code>outputs/</code>. Nothing on this page is typed in by hand.</p></div>
+{% if not evaluation %}
+<div class="alert alert-danger">No evaluation results found. Run <code>python train_model.py</code> first.</div>
+{% else %}
+<div class="card mb"><h2>Four-model comparison <span class="tag model">TEST SET: {{ evaluation.test_records }} RECORDS, {{ evaluation.test_failures }} FAILURES</span></h2>
+  <p class="sub">Each model was tuned with 5-fold cross-validation on the training set (scored by PR-AUC). Its decision threshold was then chosen on out-of-fold training predictions to maximise F2 (recall counts four times as much as precision). The highlighted row is the selected model.</p>
+  <div class="table-wrap"><table class="table compact"><thead><tr><th>Model</th><th class="num" title="5-fold cross-validated PR-AUC on training data">CV PR-AUC</th><th class="num">Thresh.</th><th class="num">Acc.</th><th class="num">Prec.</th><th class="num">Recall</th><th class="num">F1</th><th class="num">F2</th><th class="num">ROC-AUC</th><th class="num">PR-AUC</th><th class="num" title="False negatives: missed failures">FN</th><th class="num" title="False positives: false alarms">FP</th></tr></thead><tbody>
+  {% for m in evaluation.models %}{% set t = m.test_tuned_threshold %}<tr class="{{ 'best' if m.model == evaluation.selected_model }}"><td>{{ m.model }}{% if m.model == evaluation.selected_model %} (selected){% endif %}</td><td class="num">{{ m.cv_pr_auc_mean|num }}</td><td class="num">{{ t.threshold|num }}</td><td class="num">{{ t.accuracy|num }}</td><td class="num">{{ t.precision|num }}</td><td class="num">{{ t.recall|num }}</td><td class="num">{{ t.f1|num }}</td><td class="num">{{ t.f2|num }}</td><td class="num">{{ m.roc_auc|num }}</td><td class="num">{{ m.pr_auc|num }}</td><td class="num">{{ t.confusion_matrix.fn }}</td><td class="num">{{ t.confusion_matrix.fp }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  <p class="small muted" style="margin-top:.7rem">Thresh. = decision threshold, Acc. = accuracy, Prec. = precision, FN = missed failures (real failures not flagged), FP = false alarms (healthy machines flagged). Baseline: always predicting "no failure" would score {{ evaluation.majority_class_accuracy|pct(2) }} accuracy and catch no failures, which is why accuracy alone is not used to choose a model.</p></div>
+
+<div class="card mb"><h2>Why this model was selected</h2>
+  <p>The selection rule was: <b>{{ evaluation.selection_rule }}</b>. This picked <b>{{ evaluation.selected_model }}</b>. The test set was not used to choose it, so the test results above are an unbiased check.</p>
+  <p class="small muted">The test set has only {{ evaluation.test_failures }} failures, so small differences between models (for example one or two failures) can be due to chance. Read the comparison as indicative, not exact.</p></div>
+
+<div class="card mb"><h2>Why recall and false negatives matter</h2>
+  <p><b>False negative</b> = a real failure the model missed: unplanned downtime, possible damage, safety risk. <b>False positive</b> = an unnecessary inspection alert: some wasted maintenance time. In predictive maintenance a missed failure is usually costlier than a false alarm, so recall is prioritised. Precision still matters, because too many false alarms make people ignore the system. F2 balances the two while favouring recall. The 4:1 weighting is a project assumption, not a measured cost.</p></div>
+
+<div class="section-label">Confusion matrices (test set, tuned threshold)</div>
+<div class="grid g4 mb">
+{% for m in evaluation.models %}{% set c = m.test_tuned_threshold.confusion_matrix %}
+  <div class="card"><h3>{{ m.model }}</h3><p class="small muted">Threshold {{ m.test_tuned_threshold.threshold|num }}</p>
+    <div class="cm"><div class="h"></div><div class="h">Pred. no failure</div><div class="h">Pred. failure</div>
+      <div class="h">Actual no failure</div><div class="tn"><b>{{ c.tn }}</b>true neg.</div><div class="fp"><b>{{ c.fp }}</b>false alarm</div>
+      <div class="h">Actual failure</div><div class="fn"><b>{{ c.fn }}</b>missed</div><div class="tp"><b>{{ c.tp }}</b>caught</div></div></div>
+{% endfor %}</div>
+
+<div class="section-label">Hyper-parameters chosen by cross-validation</div>
+<div class="card mb"><div class="table-wrap"><table class="table"><thead><tr><th>Model</th><th>Best parameters</th></tr></thead><tbody>
+{% for m in evaluation.models %}<tr><td>{{ m.model }}</td><td>{% for k, v in m.best_params.items() %}{{ k }} = {{ v }}{{ ', ' if not loop.last }}{% endfor %}</td></tr>{% endfor %}</tbody></table></div></div>
+
+<div class="section-label">Explainability: permutation importance of the selected model</div>
+{% if importance %}
+<div class="grid g2 mb">
+  {% for level, title in [('raw input', 'Raw inputs'), ('engineered / encoded', 'Engineered and encoded features')] %}
+  <div class="card"><h2>{{ title }}</h2><p class="sub">Drop in PR-AUC when the feature is shuffled on the test set.</p>
+    {% set rows = importance|selectattr('level', 'equalto', level)|list %}
+    <div class="table-wrap"><table class="table"><thead><tr><th>Feature</th><th class="num">Importance</th><th class="num">Std</th></tr></thead><tbody>
+    {% for r in rows %}<tr><td>{{ r.feature }}</td><td class="num">{{ '%.4f'|format(r.importance_mean) }}</td><td class="num">{{ '%.4f'|format(r.importance_std) }}</td></tr>{% endfor %}</tbody></table></div></div>
+  {% endfor %}
+</div>
+<p class="small muted">Importance shows what the model relies on, not what causes failure. Shuffling a raw input also changes the engineered features built from it (for example air temperature feeds the temperature difference), so raw-input importance is higher than the engineered-level view suggests. Correlated features also share importance.</p>
+{% else %}<div class="empty">Feature importance file not found.</div>{% endif %}
+{% endif %}
+{% endblock %}

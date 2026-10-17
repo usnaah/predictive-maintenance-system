@@ -1,0 +1,5 @@
+model,cv_pr_auc,threshold,accuracy,precision,recall,f1,f2,roc_auc,pr_auc,false_negatives,false_positives
+Logistic Regression,0.4859,0.7751,0.95,0.3571,0.5882,0.4444,0.5208,0.931,0.44,28,72
+Decision Tree,0.8347,0.95,0.9915,0.918,0.8235,0.8682,0.8408,0.9259,0.8631,12,5
+Random Forest,0.8933,0.345,0.984,0.7195,0.8676,0.7867,0.8333,0.9867,0.8795,9,23
+ANN (MLP),0.7269,0.2276,0.9755,0.6067,0.7941,0.6879,0.7479,0.9788,0.767,14,35

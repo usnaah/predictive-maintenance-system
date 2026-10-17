@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Batch results{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Batch prediction results</h1><p>Model estimates for your uploaded machines, ordered from highest to lowest failure probability. These are predictions, not observed failures.</p></div>
+<div class="grid g4 mb">
+  <div class="card kpi model"><div class="label">Rows uploaded</div><div class="value">{{ summary.uploaded_rows }}</div><div class="note">{{ summary.scored_rows }} scored, {{ summary.rejected_rows }} rejected</div></div>
+  <div class="card kpi model"><div class="label">Failures predicted</div><div class="value">{{ summary.predicted_failures }}</div><div class="note">probability &ge; {{ threshold|pct(1) }}</div></div>
+  <div class="card kpi model"><div class="label">High risk</div><div class="value">{{ summary.risk_counts.High }}</div><div class="note">Medium: {{ summary.risk_counts.Medium }}</div></div>
+  <div class="card kpi model"><div class="label">Low risk</div><div class="value">{{ summary.risk_counts.Low }}</div><div class="note">below half the threshold</div></div>
+</div>
+{% if issues %}<div class="alert alert-warning"><b>{{ summary.rejected_rows }} row(s) were skipped:</b><ul>{% for i in issues %}<li>CSV line {{ i.csv_line }}: {{ i.problem }}</li>{% endfor %}{% if more_issues %}<li>...and {{ more_issues }} more</li>{% endif %}</ul></div>{% endif %}
+<div class="card">
+  <h2>Predictions <a class="btn btn-accent" href="{{ url_for('download', token=token) }}">Download full results (CSV)</a></h2>
+  <p class="sub">Showing the top {{ shown }} of {{ summary.scored_rows }} rows. The download contains every scored row.</p>
+  <div class="table-wrap"><table class="table"><thead><tr><th class="num">CSV line</th><th>Type</th><th class="num">Failure probability</th><th>Predicted</th><th>Risk</th><th class="num">Air [K]</th><th class="num">Process [K]</th><th class="num">Speed [rpm]</th><th class="num">Torque [Nm]</th><th class="num">Wear [min]</th></tr></thead><tbody>
+  {% for r in rows %}<tr><td class="num">{{ r.csv_line }}</td><td>{{ r['Type'] }}</td><td class="num"><b>{{ r.failure_probability|pct(1) }}</b></td><td>{{ 'Failure predicted' if r.predicted_failure else 'No failure predicted' }}</td><td><span class="badge risk-{{ r.risk_category }}">{{ r.risk_category }}</span></td><td class="num">{{ r['Air temperature [K]'] }}</td><td class="num">{{ r['Process temperature [K]'] }}</td><td class="num">{{ r['Rotational speed [rpm]']|round|int }}</td><td class="num">{{ r['Torque [Nm]'] }}</td><td class="num">{{ r['Tool wear [min]']|round|int }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  <p class="disclaimer">Risk bands are a project-defined rule (High at or above the decision threshold, Medium at or above half of it), not an industrial standard. Estimates do not guarantee machine safety.</p>
+  <div class="actions"><a class="btn btn-outline" href="{{ url_for('batch') }}">Upload another file</a><a class="btn btn-outline" href="{{ url_for('dashboard') }}">Back to dashboard</a></div>
+</div>
+{% endblock %}

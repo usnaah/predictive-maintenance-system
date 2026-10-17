@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Batch CSV prediction{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Batch prediction from CSV</h1>
+<p>Upload a CSV with one machine per row. Every valid row is scored with the same saved pipeline used for single predictions. Files are processed in memory and are not stored on disk.</p></div>
+<div class="grid g-form">
+  <form class="card" method="post" action="{{ url_for('batch') }}" enctype="multipart/form-data" data-loading>
+    <h2>Upload file</h2>
+    {% if error %}<div class="alert alert-danger" role="alert"><b>Upload problem:</b> {{ error }}</div>{% endif %}
+    {% if issues %}<div class="alert alert-warning"><b>Row problems (first {{ issues|length }}):</b><ul>{% for i in issues %}<li>CSV line {{ i.csv_line }}: {{ i.problem }}</li>{% endfor %}</ul></div>{% endif %}
+    <div class="dropzone"><label for="file">Choose a .csv file (max 2 MB, 5,000 rows)</label><input class="form-control" id="file" type="file" name="file" accept=".csv,text/csv" required></div>
+    <div class="actions"><button class="btn btn-primary" type="submit"><span class="spinner"></span>Run batch prediction</button>
+      <a class="btn btn-outline" href="{{ url_for('static', filename='sample_batch.csv') }}" download>Download sample CSV</a>
+      <a class="btn btn-outline" href="{{ url_for('dashboard') }}">Back to dashboard</a></div>
+  </form>
+  <div class="card"><h2>Required columns</h2><p class="sub">Header names must match exactly. Extra columns (UDI, Product ID, labels) are ignored.</p>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Column</th><th>Allowed values</th></tr></thead><tbody>
+    {% for col, s in specs.items() %}<tr><td>{{ col }}</td><td>{% if col == 'Type' %}L, M or H{% else %}{{ s.min }} to {{ s.max }} {{ s.unit }}{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+    <p class="small muted" style="margin-top:.8rem">Rows with missing, non-numeric or out-of-range values are skipped and listed so you can correct them. Valid rows are still scored.</p></div>
+</div>
+{% endblock %}

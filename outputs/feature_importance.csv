@@ -1,0 +1,18 @@
+level,feature,importance_mean,importance_std
+engineered / encoded,Rotational speed [rpm],0.411636,0.024896
+engineered / encoded,temp_diff_K,0.273071,0.026525
+engineered / encoded,wear_x_torque,0.150609,0.009632
+engineered / encoded,power_W,0.135363,0.009837
+engineered / encoded,Torque [Nm],0.066881,0.014592
+engineered / encoded,Tool wear [min],0.052497,0.007417
+engineered / encoded,Air temperature [K],0.012792,0.01069
+engineered / encoded,Type_L,0.011224,0.005783
+engineered / encoded,Type_M,0.006466,0.005914
+engineered / encoded,Type_H,-0.000832,0.002473
+engineered / encoded,Process temperature [K],-0.009547,0.007485
+raw input,Torque [Nm],0.648196,0.020506
+raw input,Rotational speed [rpm],0.541989,0.023368
+raw input,Air temperature [K],0.459043,0.054761
+raw input,Tool wear [min],0.322562,0.038619
+raw input,Process temperature [K],0.222165,0.042747
+raw input,Type,0.052693,0.021711
